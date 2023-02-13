@@ -58,6 +58,8 @@ class CharNum {
 
 DIGIT=        [0-9]
 WHITESPACE=   [\040\t]
+STRINGTEXT=   (\\\"|[^\n\"]|\\t|\\\\|\\n|{WHITESPACE})*
+BADESCAPECHAR=[^nt'\"\\?]
 
 %implements java_cup.runtime.Scanner
 %function next_token
@@ -88,7 +90,32 @@ return new Symbol(sym.EOF);
             CharNum.num++;
             return S;
           }
-        
+\"{STRINGTEXT}\"{
+            String val = yytext();
+            Symbol S = new Symbol(sym.STRINGLITERAL,
+                          new StrLitTokenVal(yyline+1, CharNum.num, val));
+            CharNum.num += yytext().length(); 
+            return S;
+          }
+\"{STRINGTEXT}
+          {
+            ErrMsg.fatal(yyline+1, CharNum.num,
+                          "ignoring unterminated string literal");
+            CharNum.num += yytext().length();
+           }
+\"({STRINGTEXT}|(\\{BADESCAPECHAR}*))\"
+          { ErrMsg.fatal(yyline+1, CharNum.num,
+                          "ignoring string literal with bad escaped character");
+            yybegin(YYINITIAL);
+	          CharNum.num += yytext().length();
+          }
+\"({STRINGTEXT}|(\\{BADESCAPECHAR}*))
+          { ErrMsg.fatal(yyline+1, CharNum.num,
+                        "ignoring unterminated string literal " +
+                        "with bad escaped character");
+            yybegin(YYINITIAL);
+	          CharNum.num += yytext().length();
+          }
 .         { ErrMsg.fatal(yyline+1, CharNum.num,
                          "ignoring illegal character: " + yytext());
             CharNum.num++;
